@@ -20,7 +20,8 @@ Shapely==1.7.1
 seaborn==0.11.1
 sotabencheval==0.0.38
 
-
+# swim transformer
+# timm
 # coco ----------------------------------------
 # pycocotools>=2.0
 
