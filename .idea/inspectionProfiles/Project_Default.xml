@@ -1,0 +1,31 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyInterpreterInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="17">
+            <item index="0" class="java.lang.String" itemvalue="pandas" />
+            <item index="1" class="java.lang.String" itemvalue="sotabencheval" />
+            <item index="2" class="java.lang.String" itemvalue="opencv-python" />
+            <item index="3" class="java.lang.String" itemvalue="onnx" />
+            <item index="4" class="java.lang.String" itemvalue="pytest" />
+            <item index="5" class="java.lang.String" itemvalue="cityscapesscripts" />
+            <item index="6" class="java.lang.String" itemvalue="asynctest" />
+            <item index="7" class="java.lang.String" itemvalue="flake8" />
+            <item index="8" class="java.lang.String" itemvalue="albumentations" />
+            <item index="9" class="java.lang.String" itemvalue="imagecorruptions" />
+            <item index="10" class="java.lang.String" itemvalue="pytest-runner" />
+            <item index="11" class="java.lang.String" itemvalue="pytest-cov" />
+            <item index="12" class="java.lang.String" itemvalue="isort" />
+            <item index="13" class="java.lang.String" itemvalue="kwarray" />
+            <item index="14" class="java.lang.String" itemvalue="xdoctest" />
+            <item index="15" class="java.lang.String" itemvalue="codecov" />
+            <item index="16" class="java.lang.String" itemvalue="ubelt" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

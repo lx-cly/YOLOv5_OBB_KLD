@@ -1,0 +1,15 @@
+# train and val datasets (image directory or *.txt file with image paths)
+# train: ../DOTA_YOLO/train_1024_OBB/images/train2020/
+# val: ../DOTA_YOLO/val_1024_OBB/images/train2020/
+
+train: /data_all/data/DOTA/Ship_dota_v1.5_1024/train/images/
+val: /data_all/data/DOTA/Ship_dota_v1.5_1024/val/images
+
+# number of classes
+nc: 1
+
+# class names
+#names: [ 'plane', 'baseball-diamond', 'bridge', 'ground-track-field', 'small-vehicle', 'large-vehicle', 'ship',
+#         'tennis-court', 'basketball-court', 'storage-tank',  'soccer-ball-field', 'roundabout', 'harbor',
+#         'swimming-pool', 'helicopter', 'container-crane' ]
+names: ['ship']
