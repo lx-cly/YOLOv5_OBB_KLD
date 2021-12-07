@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 import torch
 import torch.nn as nn
 
-from models.common import Conv, Bottleneck, SPP, DWConv, Focus, BottleneckCSP, Concat, NMS,BasicBlock
-from models.experimental import MixConv2d, CrossConv, C3,GhostBottleneck
+from models.common import Conv, Bottleneck, SPP, DWConv, Focus, BottleneckCSP, Concat, NMS,BasicBlock,BottleneckCSP_Cbam
+from models.experimental import MixConv2d, CrossConv #,# C3,GhostBottleneck
 from utils.general import check_anchor_order, make_divisible, check_file, set_logging
 from utils.torch_utils import (
     time_synchronized, fuse_conv_and_bn, model_info, scale_img, initialize_weights, select_device)
@@ -60,7 +60,7 @@ class Detect(nn.Module):  # 定义检测网络
                     x list: [small_forward, medium_forward, large_forward]  eg:small_forward.size=( batch_size, 3种scale框, size1, size2, [xywh,score,num_classes,num_angle])
         '''
         #if profile:
-        #x = x.copy()  # for profiling --must do it
+        x = x.copy()  # for profiling --must do it
 
         z = []  # inference output
         self.training |= self.export
@@ -347,7 +347,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         n = max(round(n * gd), 1) if n > 1 else n  # depth gain,BottleneckCSP层中Bottleneck层的个数
 
         # 排除concat，Unsample，Detect的情况
-        if m in [Conv, Bottleneck, SPP, DWConv, MixConv2d, Focus, CrossConv, BottleneckCSP, C3]:
+        if m in [Conv, Bottleneck, SPP, DWConv, MixConv2d, Focus, CrossConv, BottleneckCSP,BottleneckCSP_Cbam]:
             # ch每次循环都会扩增[3]-> [3,80] -> [3,80,160] -> [3,80,160,160] -> '''
             c1, c2 = ch[f], args[0]  # c1 = 3， c2 = 每次module函数中的out_channels参数
 
@@ -372,7 +372,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             # if m != Focus:
             #     c2 = make_divisible(c2, 8) if c2 != no else c2
             args = [c1, c2, *args[1:]]  # [ch[-1], out_channels, kernel_size, strides(可能)] — 除了BottleneckCSP与C3层
-            if m in [BottleneckCSP, C3]:
+            if m in [BottleneckCSP]:
                 args.insert(2, n)       # [ch[-1], out_channnels, Bottleneck_num] — BottleneckCSP与C3层
                 n = 1
 
@@ -432,8 +432,8 @@ if __name__ == '__main__':
     # print(a)
     parser = argparse.ArgumentParser()
     #parser.add_argument('--weights', type=str, default='../weights/yolov5s.pt', help='initil weights path')
-    parser.add_argument('--cfg', type=str, default='yolov5s.yaml', help='model.yaml')
-    parser.add_argument('--device', default='4', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--cfg', type=str, default='yolov5m.yaml', help='model.yaml')
+    parser.add_argument('--device', default='1', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     opt = parser.parse_args()
     opt.cfg = check_file(opt.cfg)  # check file
     set_logging()
@@ -447,6 +447,8 @@ if __name__ == '__main__':
     img = torch.rand(1 if torch.cuda.is_available() else 1, 3, 1024, 1024).to(device)
     print('img:',img.shape)
     y = model(img, profile=True)
+    for item in y:
+        print(item.shape)
     print('----------over-----------')
 
 

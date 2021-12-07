@@ -646,6 +646,124 @@ def rbox_iou(box1, theta1, box2, theta2):
     return IoUs
 
 
+def compute_loss_kld_od(p,targets,model):
+    '''
+    @param p: [small_forward, medium_forward, large_forward]  eg:small_forward.size=( batch_size, 3种scale框, size1, size2, no)
+    @param targets: torch.Size = (该batch中的目标数量, [该image属于该batch的第几个图片, class, xywh,Θ])
+    @param model: 网络模型
+    @return:
+            loss * bs : 标量  ；
+            torch.cat((lbox, lobj, lcls, langle, loss)).detach() : 不参与网络更新的标量 list(边框损失, 置信度损失, 分类损失, 角度loss,总损失)
+    '''
+    device = targets.device
+    #初始化各个部分损失
+    lcls, lbox, lobj = torch.zeros(1, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device)
+    langle = torch.zeros(1, device=device)
+    # 获得标签分类，边框，索引，anchor
+    '''
+        tcls : 3个tensor组成的list (tensor_class_list[i])  对每个步长网络生成对应的class tensor
+                       tcls[i].shape=(num_i, 1)
+        tbox : 3个tensor组成的list (box[i])  对每个步长网络生成对应的gt_box信息 xy：当前featuremap尺度上的真实gt_xy与负责预测网格坐标的偏移量; wh：当前featuremap尺度上的真实gt_wh
+                       tbox[i].shape=(num_i, 4)
+        indices : 索引列表 也由3个大list组成 每个list代表对每个步长网络生成的索引数据。其中单个list中的索引数据分别有:
+                       (该image属于该batch的第几个图片 ; 该box属于哪种scale的anchor; 网格索引1; 网格索引2)
+                             indices[i].shape=(4, num_i)
+        anchors : anchor列表 也由3个list组成 每个list代表每个步长网络对gt目标采用的anchor大小(对应featuremap尺度上的anchor_wh)
+                            anchor[i].shape=(num_i, 2)
+        tangle : 3个tensor组成的list (tensor_angle_list[i])  对每个步长网络生成对应的class tensor
+                       tangle[i].shape=(num_i)
+    '''
+    tcls, tbox, indices, anchors= build_targets_kld_od(p, targets, model)  # targets
+    #tcls, tbox, indices, anchors, tangle = build_targets(p, targets, model)  # targets
+
+    h = model.hyp  # hyperparameters
+    # 定义损失函数 分类损失和 置信度损失
+    BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([h['cls_pw']])).to(device)
+    BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([h['obj_pw']])).to(device)
+    KLD_angle = KLDloss()#nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([h['angle_pw']])).to(device)##要用kld的方式
+    # 标签平滑，eps默认为0，其实是没用上 cp = 1; cn = 0
+    cp, cn = smooth_BCE(eps=0.0)
+
+    # Focal loss
+    # 如果设置了fl_gamma参数，就使用focal loss，默认也是没使用的
+    g = h['fl_gamma']  # focal loss gamma
+    if g > 0:
+        BCEcls, BCEobj = FocalLoss(BCEcls, g), FocalLoss(BCEobj, g)
+        #BCEangle = FocalLoss(BCEangle, g)
+
+    # Losses
+    nt = 0  # number of targets
+    np = len(p)  # number of inference outputs = 3
+    # 设置三个特征图对应输出的损失系数  4.0, 1.0, 0.4分别对应下采样8,16,32的输出层
+    balance = [4.0, 1.0, 0.4] if np == 3 else [4.0, 1.0, 0.4, 0.1]  # P3-5 or P3-6
+    tobj = None
+
+    for i, pi in enumerate(p):  # layer index, layer predictions
+        # 根据indices获取索引，方便找到对应网格的输出
+        # pi.size = (batch_size, 3种scale框, size1, size2, [xywh,score,num_classes,num_angles])
+        # indice[i] = (该image属于该batch的第几个图片 ,该box属于哪种scale的anchor，网格索引1，网格索引2)
+        # indices[i].shape=(4, num_i)
+        b, a, gj, gi = indices[i]  # image, anchor, gridy, gridx  shape=(num_i)
+        tobj = torch.zeros_like(pi[..., 0], device=device)  # target obj
+        n = b.shape[0]  # number of GT_targets_filter  num
+        if n:
+            nt += n  # cumulative targets 累加三个检测层中的gt数量
+            # 前向传播结果pi.shape(batch_size, 3种scale框, size1, size2, [xywh,score,num_classes,num_angles])
+            # b, a, gj, gi  shape均=(num_filter)经过筛选的gt信息 pi[该image属于该batch的第几个图片，该box属于哪种scale的anchor，网格索引1，网格索引2]
+            # 得到ps.size = (经过与gt匹配后筛选的数量N ,[xywh,score,num_classes,num_angles])
+            ps = pi[b, a, gj, gi]  # prediction subset corresponding to targets  前向传播结果与target信息进行匹配 筛选对应的网格 得到对应网格的前向传播结果
+            #Regression
+            # pxy.shape(num, 2)
+            pxy = ps[:, :2].sigmoid() * 2. - 0.5  # 对前向传播结果xy进行回归  （预测的是offset）-> 处理成与当前网格左上角坐标的xy偏移量
+            # pxy.shape(num, 2)
+            pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]  # 对前向传播结果wh进行回归  （预测的是当前featuremap尺度上的框wh尺度缩放量）-> 处理成featuremap尺度上框的真实wh
+            pangle = ps[:,4:5].sigmoid() * 179  # 0~180  #xywh angle score num_classes
+
+            pbox_angle = torch.cat((pxy, pwh ,pangle), 1).to(device)  # predicted box 生成featuremap上的bbox  shape(num, 4)
+            # 计算边框损失，注意这个CIoU=True，计算的是ciou损失
+
+            #iou = KLD_angle(pbox_angle, torch.cat((tbox[i],tangle[i]),1))  # iou(prediction, target)  shape=(num)
+            iou = KLD_angle(pbox_angle, tbox[i])  # iou(prediction, target)  shape=(num)
+            lbox += iou.mean()  # iou loss  iou为两者的匹配度 因此计算loss时必须让匹配度高的loss贡献更低  因此1-iou后取num个数据的均值  shape(1)
+
+            # Classification  设置如果类别数大于1才计算分类损失
+            class_index = 6 + model.nc
+            if model.nc > 1:  # cls loss (only if multiple classes)
+                # ps.size = (经过与gt匹配后筛选的数量N ,[xywh,score,num_classes,num_angles])
+                # t.size = (num ,num_classes) 值全为cn=0（没做标签平滑）
+                t = torch.full_like(ps[:, 6:class_index], cn, device=device)  # targets
+                # tcls[i] : 对当前步长网络生成对应的class tensor  tcls[i].shape=(num, 1)  eg：tcls[0] = tensor([73, 73, 73])
+                # 在num_classes处对应的类别位置置为cp=1 （没做标签平滑）  i为layer index
+                t[range(n), tcls[i]] = cp
+
+                # 前向传播结果与targets结果开始计算分类损失并累加
+                # 筛选后的前向传播结果ps[:, 5:].shape=(num, num_classes)   t.shape=(num ,num_classes)
+                lcls += BCEcls(ps[:, 6:class_index], t)  # BCE 分类损失以BCEWithLogitsLoss来计算
+
+            # 使用标签框与预测框的CIoU值来作为该预测框的conf分支的权重系数 detach不参与网络更新  (1.0 - model.gr)为objectness额外的偏移系数
+            tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * (1-iou).detach().clamp(0).type(tobj.dtype)  # iou ratio 与target信息进行匹配 筛选为前景的网格 shape(num)
+
+        # 计算objectness的损失  计算score与labels的损失
+        # pi.size = (batch_size, 3种scale框, size1, size2, [xywh,score,num_classes,num_angles])
+        # tobj.size = (batch_size, 3种scale框, size1, size2, 1) 其中与gt对应的位置为当前预测框与gt框的?IoU值 ；预测框与gt框的匹配度越高理应预测质量越高
+        lobj += BCEobj(pi[..., 5], tobj) * balance[i]  # obj loss 最后分别乘上3个尺度检测层的权重并累加
+
+    # 根据超参数设置的各个部分损失的系数 获取最终损失
+    s = 3 / np  # output count scaling
+    lbox *= h['box'] * s
+    lobj *= h['obj'] * s * (1.4 if np == 4 else 1.)
+    lcls *= h['cls'] * s
+    langle *= h['angle'] * s
+    bs = tobj.shape[0]  # batch size
+
+    loss = lbox + lobj + lcls + langle
+    '''
+    loss * bs : 标量
+    torch.cat((lbox, lobj, lcls, langle, loss)) : 不参与网络更新的标量 list(边框损失, 置信度损失, 分类损失, Θ分类损失,总损失)
+    '''
+    return loss * bs, torch.cat((lbox, lobj, lcls, langle, loss)).detach()
+
+
 def compute_loss_kld(p,targets,model):
     '''
     @param p: [small_forward, medium_forward, large_forward]  eg:small_forward.size=( batch_size, 3种scale框, size1, size2, no)
@@ -914,6 +1032,103 @@ def compute_loss(p, targets, model, csl_label_flag=True):
     torch.cat((lbox, lobj, lcls, langle, loss)) : 不参与网络更新的标量 list(边框损失, 置信度损失, 分类损失, Θ分类损失,总损失)
     '''
     return loss * bs, torch.cat((lbox, lobj, lcls, langle, loss)).detach()
+
+def build_targets_kld_od(p,targets,model):
+    # 获取每一个(3个)检测层
+    #det = model.module.model[-1] if is_parallel(model) else model.model[-1]  # Detect() module
+    det = model.module.detection if is_parallel(model) else model.detection  # Detect() module
+    # anchor数量和GT标签框数量
+    na, nt = det.na, targets.shape[0]  # number of anchors=3, nums of targets in one batch
+    tcls, tbox, indices, anch = [], [], [], []
+    tangle = []
+    gain = torch.ones(8, device=targets.device)  # normalized to gridspace gain
+    # ai.shape = (3, nt) 生成anchor索引  anchor index; ai[0]全等于0. ai[1]全等于1. ai[2]全等于2.用于表示当前gtbox和当前层哪个anchor匹配
+    ai = torch.arange(na, device=targets.device).float().view(na, 1).repeat(1, nt)  # same as .repeat_interleave(nt)
+    '''
+    targets.size(该batch中的GT数量, 7)  ->   targets.size(3(原来数据的基础上重复三次，按行拼接), 该batch中的GT数量, 7) 7--[该image属于该batch的第几个图片, class, xywh, Θ]
+    targets.size(3(原来数据的基础上重复三次，按行拼接), 该batch中的GT数量, 7) ->  targets.size(3(原来数据的基础上重复三次，按行拼接), 该batch中的GT数量, 7 + anchor_index)
+    targets.shape = (3, num_gt_batch, [该image属于该batch的第几个图片, class, xywh,Θ, 用第几个anchor进行检测])
+    由于每个尺度的feature map各自对应3种scale的anchor，因此将GT标签信息重复三次，方便与每个点的3个anchor单独匹配
+    '''
+    targets = torch.cat((targets.repeat(na, 1, 1), ai[:, :, None]), 2)  # append anchor indices
+    # 设置偏移量
+    g = 0.5  # bias 网格中心偏移
+    # 附近的四个网格 off.shape = (5, 2)
+    off = torch.tensor([[0, 0],
+                        [1, 0], [0, 1], [-1, 0], [0, -1],  # j,k,l,m
+                        # [1, 1], [1, -1], [-1, 1], [-1, -1],  # jk,jm,lk,lm
+                        ], device=targets.device).float() * g  # offsets
+    # 对每个检测层进行处理
+    for i in range(det.nl):  # 3种步长的feature map
+        # det.anchor(3, 3, 2)  anchors: -> 原始anchor(0,:,:)/ 8. , anchor(1,:,:)/ 16.  anchor(2,:,:)/ 32.
+        # anchors (3, 2)  3种scale的anchor wh
+        anchors = det.anchors[i]  # small->medium->large anchor框
+        # 得到特征图的坐标系数
+        """
+        p[i].shape = (b, 3种scale框, h, w, [xywh,score,num_classes,num_angle]), hw分别为特征图的长宽
+        gain = [1, 1, h, w, h, w, 1, 1]
+        """
+        gain[2:6] = torch.tensor(p[i].shape)[[3, 2, 3, 2]]  # xyxy gain  把p[i]wh维度的数据赋给gain
+        num_h, num_w = p[i].shape[2:4]
+
+        # Match targets to anchors
+        # targets.shape = (3, num_gt_batch, [该image属于该batch的第几个图片, class, xywh,Θ, 用哪个anchor进行检测])  gain = [1, 1, w, h, w, h, 1]
+        # t.shape = (3 , num_gt_batch, [该image属于该batch的第几个图片, class, xywh_feature,Θ, 用哪个anchor进行检测])
+        t = targets * gain  # 将labels的归一化的xywh从基于0~1映射到基于特征图的xywh 即变成featuremap尺度
+        if nt:  # num_targets 该batch中的目标数量
+            # Matches
+            r = t[:, :, 4:6] / anchors[:, None]  # wh ratio 获取gt bbox与anchor的wh比值  shape=(3, num_gt_batch, 2)
+            j = torch.max(r, 1. / r).max(2)[0] < model.hyp['anchor_t']  # compare   shape=(3,num_gt_batch)
+            # j = wh_iou(anchors, t[:, 4:6]) > model.hyp['iou_t']  # iou(3,n)=wh_iou(anchors(3,2), gwh(n,2))
+            '''
+            从(3 , num_gt_targets_thisbatch,8) 的t中筛选符合条件的anchor_target框
+            即 3 * num_gt_targets_thisbatch个anchor中筛出M个有效GT
+            经过第i层检测层筛选过后的t.shape = (M, 8),M为筛选过后的数量
+            '''
+            # shape=(3 , num_gt_batch_filter, 8) ->  (M, [该image属于该batch的第几个图片, class, xywh_feature,Θ, 用哪个anchor进行检测])
+            t = t[j]  # filter 筛选出与anchor匹配的targets;
+
+            # Offsets
+            # 得到筛选后的GT的中心点坐标xy-featuremap尺度(相对于左上角的), 其shape为(M, [x_featuremap, y_featuremap])
+            gxy = t[:, 2:4]  # grid gt xy
+            # 得到筛选后的GT的中心点相对于右下角的坐标, 其shape为(M, 2)
+            # gain = [1, 1, w, h, w, h, 1, 1]
+            gxi = gain[[2, 3]] - gxy  # inverse grid gt xy
+
+            j, k = ((gxy % 1. < g) & (gxy > 1.)).T  # 判断筛选后的GT中心坐标是否相对于各个网格的左上角偏移<0.5 同时 判断 是否不处于最左上角的网格中 （xy两个维度）
+            l, m = ((gxi % 1. < g) & (gxi > 1.)).T  # 判断筛选后的GT中心坐标是否相对于各个网格的右下角偏移<0.5 同时 判断 是否不处于最右下角的网格中 （xy两个维度）
+            j = torch.stack((torch.ones_like(j), j, k, l, m))  # shape(5, M) 其中元素为True或False
+            # 由于预设的off为5 先将t在第一个维度重复5次 shape(5, M, 8),现在选出最近的3个(包括 0，0 自己)
+            t = t.repeat((5, 1, 1))[j]  # 得到经过第二次筛选的框(3*M, 8)
+
+            # 添加偏移量  gxy.shape=(M, 2) off.shape = (5, 2)  ->  shape(5, M, 2)
+            offsets = (torch.zeros_like(gxy)[None] + off[:, None])[j]  # 选出最近的三个网格 offsets.shape=(3*M, 2)
+
+        else:
+            t = targets[0]
+            offsets = 0
+
+        # Define
+        # t.size = (3*M, [该image属于该batch的第几个图片, class, xywh_feature,Θ, 用哪个anchor进行检测])
+        # b为batch中哪一张图片的索引，c为类别,angle = Θ
+        b, c = t[:, :2].long().T  # image, class
+        angle = t[:, 6].long()
+        angle = angle.unsqueeze(1)
+        gxy = t[:, 2:4]  # grid xy  不考虑offset时负责预测的网格坐标 xy_featuremap 即feature尺度上的gt真实xy
+        gwh = t[:, 4:6]  # grid wh  wh_featuremap
+        gij = (gxy - offsets).long()  # featuremap上的gt真实xy坐标减去偏移量再取整  即计算当前label落在哪个网格坐标上
+        gi, gj = gij.T  # grid xy indices 将x轴坐标信息压入gi 将y轴坐标索引信息压入gj 负责预测网格具体的整数坐标 比如 23， 2
+        gi = torch.clamp(gi, 0, num_w - 1)  # 确保网格索引不会超过数组的限制
+        gj = torch.clamp(gj, 0, num_h - 1)
+
+        # Append
+        a = t[:, 7].long()  # anchor indices  表示用第几个anchor进行检测 shape(3*M, 1)
+        indices.append((b, a, gj, gi))  # image_index, anchor_index, grid indices ; 每个预测层的shape(4, 3*M)
+        tbox.append(torch.cat((gxy - gij, gwh,angle),1))  # 每个预测层的box shape(3*M, 4)  其中xy:当前featuremap尺度上的真实gt xy与负责预测网格坐标的偏移量  wh：当前featuremap尺度上的真实gt wh
+        anch.append(anchors[a])  # anchors  每个预测层的shape(3*M, 2) 当前featuremap尺度上的anchor wh
+        tcls.append(c)  # class  每个预测层的shape(3*M, 1)
+        #tangle.append(angle)  # angle 每个预测层的shape(3*M, 1)
+    return tcls, tbox, indices, anch
 
 def build_targets_kld(p,targets,model):
     """
@@ -1677,7 +1892,7 @@ def rotate_non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=
             # Compute conf
             x[:, 6:class_index] *= x[:, 5:6]  # conf = obj_conf * cls_conf
             # Box (center x, center y, width, height) to (x1, y1, x2, y2)
-            angle_index = x[:, 4:5] *180 # angle.size=(num_confthres_boxes, [num_angles])
+            angle_index = x[:, 4:5] *179 # angle.size=(num_confthres_boxes, [num_angles])
             # torch.max(angle,1) 返回每一行中最大值的那个元素，且返回其索引（返回最大元素在这一行的列索引）
             #angle_value, angle_index = torch.max(angle, 1, keepdim=True)  # size都为 (num_confthres_boxes, 1)
             # box.size = (num_confthres_boxes, [xywhθ])  θ∈[0,179]
@@ -1804,7 +2019,7 @@ def rotate_non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=
             # x = x[x[:, 4].argsort(descending=True)]
             # Batched NMS
             # x：(num_confthres_boxes, [xywhθ,conf,classid]) θ∈[0,179]
-            c = x[:, 6:class_index] * (0 if agnostic else max_wh)  # classes
+            c = x[:, 5:class_index] * (0 if agnostic else max_wh)  # classes
             # boxes:(num_confthres_boxes, [xy])  scores:(num_confthres_boxes, 1)
             # agnostic用于 不同类别的框仅跟自己类别的目标进行nms   (offset by class) 类别id越大,offset越大
             boxes_xy, box_whthetas, scores = x[:, :2] + c, x[:, 2:5], x[:, 5]
@@ -1912,6 +2127,30 @@ def coco_single_class_labels(path='../coco/labels/train2014/', label_class=43):
                 for l in labels[i]:
                     f.write('%g %.6f %.6f %.6f %.6f\n' % tuple(l))
             shutil.copyfile(src=img_file, dst='new/images/' + Path(file).name.replace('txt', 'jpg'))  # copy images
+
+def colorstr(*input):
+    # Colors a string https://en.wikipedia.org/wiki/ANSI_escape_code, i.e.  colorstr('blue', 'hello world')
+    *args, string = input if len(input) > 1 else ('blue', 'bold', input[0])  # color arguments, string
+    colors = {'black': '\033[30m',  # basic colors
+              'red': '\033[31m',
+              'green': '\033[32m',
+              'yellow': '\033[33m',
+              'blue': '\033[34m',
+              'magenta': '\033[35m',
+              'cyan': '\033[36m',
+              'white': '\033[37m',
+              'bright_black': '\033[90m',  # bright colors
+              'bright_red': '\033[91m',
+              'bright_green': '\033[92m',
+              'bright_yellow': '\033[93m',
+              'bright_blue': '\033[94m',
+              'bright_magenta': '\033[95m',
+              'bright_cyan': '\033[96m',
+              'bright_white': '\033[97m',
+              'end': '\033[0m',  # misc
+              'bold': '\033[1m',
+              'underline': '\033[4m'}
+    return ''.join(colors[x] for x in args) + f'{string}' + colors['end']
 
 
 def kmean_anchors(path='./data/coco128.yaml', n=9, img_size=640, thr=4.0, gen=1000, verbose=True):

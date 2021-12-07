@@ -19,7 +19,7 @@
       <paths name="root@10.10.10.13:26">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/workspace/YOLOv5_DOTA_OBB" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

@@ -266,7 +266,7 @@ def voc_eval(detpath,
 
     return rec, prec, ap
 
-def evaluation_samll(detoutput='/workspace/detection10',imageset='/data_all/data/DOTA/Ship_dota_v1.5_1024/val/images',
+def evaluation_samll(detoutput='/workspace/detectionlx',imageset='/data_all/data/DOTA/Ship_dota_v1.5_1024/val/images',
     annopath='/data_all/data/DOTA/Ship_dota_v1.5_1024/val/labelTxt/{:s}.txt', classnames=['ship']):
     """
     评估程序
@@ -463,13 +463,13 @@ if __name__ == '__main__':
     #             'basketball-court', 'storage-tank',  'soccer-ball-field', 'roundabout', 'harbor', 'swimming-pool', 'helicopter', ']
 
     #
-    # evaluation(
-    #     detoutput='/workspace/detection10',
-    #     imageset=r'/data_all/data/DOTA/Ship_dota_v1.5/val/images',
-    #     annopath=r'/data_all/data/DOTA/Ship_dota_v1.5/val/labelTxt-v1.5/{:s}.txt',
-    #     classnames=classnames
-    # )
-    evaluation_samll()
+    evaluation(
+        detoutput='/workspace/detectionlx',
+        imageset=r'/data_all/data/DOTA/Ship_dota_v1.5/val/images',
+        annopath=r'/data_all/data/DOTA/Ship_dota_v1.5/val/labelTxt-v1.5/{:s}.txt',
+        classnames=classnames
+    )
+    #evaluation_samll()
 
     # draw_DOTA_image(imgsrcpath=r'/home/test/Persons/hukaixuan/yolov5_DOTA_OBB/DOTA_demo_view/row_images',
     #                 imglabelspath=r'/home/test/Persons/hukaixuan/yolov5_DOTA_OBB/DOTA_demo_view/detection/result_txt/result_merged',
