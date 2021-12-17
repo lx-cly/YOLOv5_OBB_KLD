@@ -162,11 +162,11 @@ class Model(nn.Module):
     def fuse(self):  # fuse model Conv2d() + BatchNorm2d() layers
         print('Fusing layers... ')
         for m in self.model.modules():
-            if isinstance(m, (Conv, DWConv)) and hasattr(m, 'bn'):  # 如果函数层名为Conv标准卷积层，且同时 层中包含‘bn’属性名
-                #m._non_persistent_buffers_set = set()  # pytorch 1.6.0 compatability
+            if type(m) is Conv and hasattr(m, 'bn'):  # 如果函数层名为Conv标准卷积层，且同时 层中包含‘bn’属性名
+                m._non_persistent_buffers_set = set()  # pytorch 1.6.0 compatability
                 m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
                 delattr(m, 'bn')  # remove batchnorm 将'bn'属性删除
-                m.forward = m.forward_fuse  # update forward
+                m.forward = m.fuseforward   # update forward
         self.info()
         return self
 
