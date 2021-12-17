@@ -377,7 +377,7 @@ def ap_per_class(tp, conf, pred_cls, target_cls, plot=False, fname='precision-re
         fig.tight_layout()
         fig.savefig(fname, dpi=200)
 
-    return r, p, ap, f1, unique_classes.astype('int32')#p r 交换了位置
+    return p, r, ap, f1, unique_classes.astype('int32')#p r 交换了位置
 
 
 def compute_ap(recall, precision):
@@ -1920,6 +1920,7 @@ def rotate_non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=
             n = x.shape[0]  # number of boxes
             if not n:
                 continue
+            # x：(num_confthres_boxes, [xywhθ,conf,classid]) θ∈[0,179]
             c = x[:, 6:class_index] * (0 if agnostic else max_wh)  # classes
             # boxes:(num_confthres_boxes, [xy])  scores:(num_confthres_boxes, 1)
             # agnostic用于 不同类别的框仅跟自己类别的目标进行nms   (offset by class) 类别id越大,offset越大
@@ -1978,6 +1979,7 @@ def rotate_non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=
 
             # Compute conf
             x[:, 5:class_index] *= x[:, 4:5]  # conf = obj_conf * cls_conf
+            #x[:, 4:5] *= x[:, 5:class_index]   # conf = obj_conf * cls_conf
 
             # Box (center x, center y, width, height) to (x1, y1, x2, y2)
             angle = x[:, class_index:]  # angle.size=(num_confthres_boxes, [num_angles])
@@ -2004,7 +2006,7 @@ def rotate_non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=
             # Filter by class 按类别筛选
             if classes:
                 # list x：(num_confthres_boxes, [xywhθ,conf,classid])
-                x = x[(x[:, 6:class_index] == torch.tensor(classes, device=x.device)).any(1)] # any（1）函数表示每行满足条件的返回布尔值
+                x = x[(x[:, 6:7] == torch.tensor(classes, device=x.device)).any(1)] # any（1）函数表示每行满足条件的返回布尔值
 
             # Apply finite constraint
             # if not torch.isfinite(x).all():
@@ -2019,7 +2021,7 @@ def rotate_non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=
             # x = x[x[:, 4].argsort(descending=True)]
             # Batched NMS
             # x：(num_confthres_boxes, [xywhθ,conf,classid]) θ∈[0,179]
-            c = x[:, 5:class_index] * (0 if agnostic else max_wh)  # classes
+            c = x[:, 6:7] * (0 if agnostic else max_wh)  # classes
             # boxes:(num_confthres_boxes, [xy])  scores:(num_confthres_boxes, 1)
             # agnostic用于 不同类别的框仅跟自己类别的目标进行nms   (offset by class) 类别id越大,offset越大
             boxes_xy, box_whthetas, scores = x[:, :2] + c, x[:, 2:5], x[:, 5]
@@ -2868,4 +2870,5 @@ def plot_results(start=0, stop=0, bucket='', id=(), labels=(), save_dir=''):
     fig.savefig(Path(save_dir) / 'results.png', dpi=200)
 
 if __name__=='__main__':
-    plot_results(save_dir='/workspace/YOLOv5_DOTA_OBB/runs/exp0')
+    #plot_results(save_dir='/workspace/YOLOv5_DOTA_OBB/runs/exp0')
+    plot_wh_methods()

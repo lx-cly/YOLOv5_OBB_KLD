@@ -61,7 +61,9 @@ $   python setup.py build_ext --inplace
 * Run the detect.py demo first. Then change the path with yours:
 * 添加了merged前后的预测结果.
 
-
+`5.` `'yolo_new.py'` 
+* 在YOLOv5中加入注意力机制
+* 
 
 ## 感激
 感谢以下的项目,排名不分先后

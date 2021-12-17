@@ -58,6 +58,26 @@ class Conv(nn.Module):
     def fuseforward(self, x):  # 前向融合计算（无BN）
         return self.act(self.conv(x))
 
+class Conv_CBAM(nn.Module):
+    # Standard convolution
+    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):  # ch_in, ch_out, kernel, stride, padding, groups
+        super(Conv_CBAM, self).__init__()
+        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = nn.Hardswish() if act else nn.Identity()
+        self.ca = ChannelAttention(c2)
+        self.sa = SpatialAttention()
+
+    def forward(self, x):
+        x = self.act(self.bn(self.conv(x)))
+        x = self.ca(x) * x
+        x = self.sa(x) * x
+        return x
+
+    def fuseforward(self, x):
+        return self.act(self.conv(x))
+
+
 class BasicBlock(nn.Module):
     '''
     标准BasicBlock层

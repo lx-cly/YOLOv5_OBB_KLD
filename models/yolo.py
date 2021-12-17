@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 import torch
 import torch.nn as nn
 
-from models.common import Conv, Bottleneck, SPP, DWConv, Focus, BottleneckCSP, Concat, NMS,BasicBlock,BottleneckCSP_Cbam
+from models.common import Conv, Bottleneck, SPP, DWConv, Focus, BottleneckCSP, Concat, NMS,BasicBlock,BottleneckCSP_Cbam,Conv_CBAM
 from models.experimental import MixConv2d, CrossConv #,# C3,GhostBottleneck
 from utils.general import check_anchor_order, make_divisible, check_file, set_logging
 from utils.torch_utils import (
@@ -60,7 +60,7 @@ class Detect(nn.Module):  # 定义检测网络
                     x list: [small_forward, medium_forward, large_forward]  eg:small_forward.size=( batch_size, 3种scale框, size1, size2, [xywh,score,num_classes,num_angle])
         '''
         #if profile:
-        x = x.copy()  # for profiling --must do it
+        #x = x.copy()  # for profiling --must do it
 
         z = []  # inference output
         self.training |= self.export
@@ -156,7 +156,7 @@ class Model(nn.Module):
         # print([x.shape for x in self.forward(torch.zeros(1, ch, 64, 64))])
 
         # Build strides, anchors
-        m = self.model[-1]  # Detect()  模型的最后一个函数为Detect层
+        m = self.model[-1] # Detect()  模型的最后一个函数为Detect层
         if isinstance(m, Detect):
             s = 128  # 2x min stride
             # 此时 x.shape = (1, 3, s/8或16或32, 5+nc)  所以 x.shape[-2]=[s/8, s/16, s/32]
@@ -347,7 +347,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         n = max(round(n * gd), 1) if n > 1 else n  # depth gain,BottleneckCSP层中Bottleneck层的个数
 
         # 排除concat，Unsample，Detect的情况
-        if m in [Conv, Bottleneck, SPP, DWConv, MixConv2d, Focus, CrossConv, BottleneckCSP,BottleneckCSP_Cbam]:
+        if m in [Conv,Conv_CBAM,Bottleneck, SPP, DWConv, MixConv2d, Focus, CrossConv, BottleneckCSP,BottleneckCSP_Cbam]:
             # ch每次循环都会扩增[3]-> [3,80] -> [3,80,160] -> [3,80,160,160] -> '''
             c1, c2 = ch[f], args[0]  # c1 = 3， c2 = 每次module函数中的out_channels参数
 
@@ -432,7 +432,7 @@ if __name__ == '__main__':
     # print(a)
     parser = argparse.ArgumentParser()
     #parser.add_argument('--weights', type=str, default='../weights/yolov5s.pt', help='initil weights path')
-    parser.add_argument('--cfg', type=str, default='yolov5m.yaml', help='model.yaml')
+    parser.add_argument('--cfg', type=str, default='yolov5s_decoupledhead.yaml', help='model.yaml')
     parser.add_argument('--device', default='1', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     opt = parser.parse_args()
     opt.cfg = check_file(opt.cfg)  # check file
@@ -445,7 +445,7 @@ if __name__ == '__main__':
 
     #Profile
     img = torch.rand(1 if torch.cuda.is_available() else 1, 3, 1024, 1024).to(device)
-    print('img:',img.shape)
+    #print('img:',img.shape)
     y = model(img, profile=True)
     for item in y:
         print(item.shape)
