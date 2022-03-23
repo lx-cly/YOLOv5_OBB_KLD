@@ -29,7 +29,7 @@ class Detect(nn.Module):  # 定义检测网络
     def __init__(self, nc=1, anchors=(), ch=()):  # detection layer
         super(Detect, self).__init__()
         self.nc = nc  # number of classes
-        self.angle = 180  # CSL---180  KLD--1
+        self.angle = 1  # CSL---180  KLD--1
         self.no = nc + 5 + self.angle   # number of outputs per anchor
         self.nl = len(anchors)  # number of detection layers
         self.na = len(anchors[0]) // 2  # number of anchors
