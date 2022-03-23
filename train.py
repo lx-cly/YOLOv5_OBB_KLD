@@ -641,15 +641,16 @@ if __name__ == '__main__':
         local_rank:gpu编号
         logdir:存放日志的目录
         workers:dataloader的最大worker数量
+  
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default='',help='initil weights path')#"./weights/yolov5s.pt"
-    parser.add_argument('--cfg', type=str, default='./models/yolov5s-xs-tph.yaml', help='model.yaml path')#'./models/yolov5s.yaml'./models/yolov5s.yaml
+    parser.add_argument('--weights', type=str, default='',help='initil weights path')#"./weights/yolov5m.pt"
+    parser.add_argument('--cfg', type=str, default='./models/yolov5m.yaml', help='model.yaml path')
     parser.add_argument('--data', type=str, default='data/DOTA_ROTATED.yaml', help='data.yaml path')
     parser.add_argument('--hyp', type=str, default='data/hyp.scratch.yaml', help='hyperparameters path')
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--batch-size', type=int, default=4, help='total batch size for all GPUs')
-    parser.add_argument('--use_kld', type=bool, default=False, help='use kld')  #默认使用KLD False --使用CSL
+    parser.add_argument('--use_kld', type=bool, default=True, help='use kld')  #默认使用KLD False --使用CSL
     parser.add_argument('--img-size', nargs='+', type=int, default=[1024, 1024], help='[train, test] image sizes')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
     parser.add_argument('--resume', nargs='?', const=True, default=False, help='resume most recent training')
@@ -661,13 +662,13 @@ if __name__ == '__main__':
     parser.add_argument('--cache-images', action='store_true', default=False, help='cache images for faster training')
     parser.add_argument('--image-weights', action='store_true', help='use weighted image selection for training')
     parser.add_argument('--name', default='', help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='7', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--multi-scale', action='store_true', help='vary img-size +/- 50%%')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
     parser.add_argument('--adam', action='store_true', help='use torch.optim.Adam() optimizer')
     parser.add_argument('--sync-bn', action='store_true', help='use SyncBatchNorm, only available in DDP mode')
     parser.add_argument('--local_rank', type=int, default=-1, help='DDP parameter, do not modify')
-    parser.add_argument('--logdir', type=str, default='runs_swin/', help='logging directory')
+    parser.add_argument('--logdir', type=str, default='runs/', help='logging directory')
     parser.add_argument('--workers', type=int, default=4, help='maximum number of dataloader workers')
     opt = parser.parse_args()
 
