@@ -1,6 +1,6 @@
 # YOLOv5_OBB_KLD
 <img src=".\doc\img.png" alt="img" style="zoom: 50%;" />
-<img src=".\doc\img_1.png" alt="img" style="zoom: 50%;" /> <img src=".\doc\img_2.png" alt="img" style="zoom: 50%;" />
+<img src=".\doc\img_1.png" alt="img" style="zoom: 100%;" /> <img src=".\doc\img_2.png" alt="img" style="zoom: 100%;" />
 
 **[代码](https://github.com/lx-cly/YOLOv5_OBB_KLD)实现了基于YOLOv5的遥感旋转框检测。利用CSL和KLD实现角度的学习，并且加入注意力机制提高检测效果。**
 
