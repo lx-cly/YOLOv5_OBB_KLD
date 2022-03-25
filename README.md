@@ -1,6 +1,7 @@
 # YOLOv5_OBB_KLD
 <img src=".\doc\img.png" alt="img" style="zoom: 50%;" />
-![img](.\doc\img_1.png)![img](.\doc\img_2.png)
+<img src=".\doc\img_1.png" alt="img" style="zoom: 50%;" />
+<img src=".\doc\img_2.png" alt="img" style="zoom: 50%;" />
 
 **[代码](https://github.com/lx-cly/YOLOv5_OBB_KLD)实现了基于YOLOv5的遥感旋转框检测。利用CSL和KLD实现角度的学习，并且加入注意力机制提高检测效果。**
 
@@ -70,8 +71,7 @@ classaps:  [     80.964]
 
 数据集图片尺寸裁剪为1024*1024，gap为10%。实验中NMS时统一使用的置信度阈值是0.35，IoU阈值是0.4。
 
-![img](.\doc\img_4.png)
-
+<img src=".\doc\img_4.png" alt="img" style="zoom: 50%;" />
 
 ## 感激
 感谢以下的项目,排名不分先后
