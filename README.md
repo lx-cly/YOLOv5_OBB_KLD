@@ -1,69 +1,77 @@
 # YOLOv5_OBB_KLD
-基于kld_loss的YOLOv5 旋转目标检测。因为基于[项目](https://github.com/hukaixuan19970627/YOLOv5_DOTA_OBB)
-也可以YOLOv5 in DOTA_OBB dataset with CSL_label.(Oriented Object Detection)
+<img src=".\doc\img.png" alt="img" style="zoom: 50%;" />
+![img](.\doc\img_1.png)![img](.\doc\img_2.png)
+
+**[代码](https://github.com/lx-cly/YOLOv5_OBB_KLD)实现了基于YOLOv5的遥感旋转框检测。利用CSL和KLD实现角度的学习，并且加入注意力机制提高检测效果。**
 
 
-## Datasets and pretrained checkpoint
-* `Datasets` : [DOTA](https://link.zhihu.com/?target=http%3A//captain.whu.edu.cn/DOTAweb/)
-* `Pretrained Checkpoint or Demo Files` : 
-    * `train,detect_and_evaluate_demo_files`:  | [Baidu Drive(6666)](https://pan.baidu.com/s/19BGy_UIdk8N-mSjHBMI0QQ). |  [Google Drive](https://drive.google.com/file/d/1MdKTgXQpHFBk_RN9UDSIB42M5e8zQaTP/view?usp=sharing) |
-    * `yolov5x.pt`:  | [Baidu Drive(6666)](https://pan.baidu.com/s/1pH6EGKZiIyGtoqUe3F8eWQ). |  [Google Drive](https://drive.google.com/file/d/1hGPB7iOl3EmB2vfm44xMpHJV8hPufHn2/view?usp=sharing) |
-    * `yolov5l.pt`:  | [Baidu Drive(6666)](https://pan.baidu.com/s/16is2mx879jk9_4RHwcIgKw). |  [Google Drive](https://drive.google.com/file/d/12ljwafulmAP1i9XsaeYvEnIUd18agJcT/view?usp=sharing) |
-    * `yolov5m.pt`:  | [Baidu Drive(6666)](https://pan.baidu.com/s/1ZQoxEB-1mtBAk3A-Rt85-A). |  [Google Drive](https://drive.google.com/file/d/1VSDegIUgTh-fMDIjuwTSQaZ1w5bVx2Vd/view?usp=sharing) |
-    * `yolov5s.pt`:  | [Baidu Drive(6666)](https://pan.baidu.com/s/1jm7ijb0a3LVkg8P2bkmJnw). |  [Google Drive](https://drive.google.com/file/d/1ePo6OM8MbxG8nAkZS_Bt7cmnChSlKBmo/view?usp=sharing) |
-    * `YOLOv5_DOTAv1.5_OBB.pt`:  | [Baidu Drive(6666)](https://pan.baidu.com/s/1WSJFwwM5nyWgPLzAV6rp8Q). |  [Google Drive](https://drive.google.com/file/d/171xlq49JEiKJ3L-UEV9tICXltPs92dLk/view?usp=sharing) |
+## 数据集和权重文件
+* `数据集` : [预处理过后的数据集](https://pan.baidu.com/s/1eyiZyjOMH9dQ8nCsPfxTTQ ).若是想训练自定义数据集，预处理过程参看[项目](https://github.com/CAPTAIN-WHU/DOTA_devkit).
+* `原始预训练的权重文件` : 
+    * `yolov5x.pt、yolov5l.pt、yolov5m.pt、yolov5s.pt`:   [Baidu Drive(6666)](https://pan.baidu.com/s/1-YmcCv25f7OHzx8sBg5bpA ).
 
-## Fuction
-* `train.py`.  Train.
 
+* `训练好的部分权重文件` : 
+    * `YOLOv5_DOTAv1.5_OBB.pt`:   [Baidu Drive(6666)](https://pan.baidu.com/s/1iu7QZUPlVSzghFNSXk5P4w )
+
+## 项目安装  (支持Linux系统)
+`1.` Python 3.8 with all requirements.txt dependencies installed, including torch==1.6, opencv-python==4.1.2.30, To install run:
+```shell
+pip install -r requirements.txt
+```
+`2.` Install swig
+```shell
+cd  \.....\yolov5_OBB_KLD\utils
+sudo apt-get install swig
+```
+`3.` Create the c++ extension for python
+
+```shell
+swig -c++ -python polyiou.i
+python setup.py build_ext --inplace
+```
+
+## 训练
+* `train.py`.  Note：修改`.\models\yolo.py`的`Detect类`中初始化函数的`self.angle = 180   #CSL对应180  KLD对应1`，默认使用CSL.
+
+```python
+python train.py --weights weights/yolov5m.pt --cfg models/yolov5m.yaml --use_kld False --device 0 --epochs 300 --batch_size 4 --workers 4 --logdir runs/    
+```
+
+
+## 评估
 * `detect.py`. Detect and visualize the detection result. Get the detection result txt.
 
 * `evaluation.py`.  Merge the detection result and visualize it. Finally evaluate the detector
-
-
-
-## Installation  (Linux Recommend, Windows not Recommend)
-`1.` Python 3.8 with all requirements.txt dependencies installed, including torch==1.6, opencv-python==4.1.2.30, To install run:
+```python
+python detect.py --weights runs/exp/weights/best.pt --source 'dataset path' --output 'output path' --conf_thres 0.35 --iou_thres 0.4 --device 0 --kld False 
+python evaluation.py 
+''' example
+检测结果已merge
+检测结果已按照类别分类
+校验数据集名称文件已生成
+classname: ship
+P: 0.8550878121966288
+R: 0.900046446818393
+map@0.5: 0.8889719225631516
+classaps:  [     88.897]
+原始存在文件,删除
+检测结果已按照类别分类
+校验数据集名称文件已生成
+classname: ship
+P: 0.8511538986754063
+R: 0.8677432827509397
+map@0.5: 0.8096364184338725
+classaps:  [     80.964]
+'''
 ```
-$   pip install -r requirements.txt
-```
-`2.` Install swig
-```
-$   cd  \.....\yolov5_OBB_KLD\utils
-$   sudo apt-get install swig
-```
-`3.` Create the c++ extension for python
-```
-$   swig -c++ -python polyiou.i
-$   python setup.py build_ext --inplace
-```
 
-## 效果
-只是用DOTAv1.5的`ship`一类进行训练,超参数相同,KLD比CSL的AP50高0.3%,不过收敛很快。
-## More detailed explanation
-想要了解其他相关实现的细节和原理可以参看[项目](https://github.com/hukaixuan19970627/YOLOv5_DOTA_OBB) 的`README.md`
-这里主要介绍修改成KLD_LOSS的部分。
-`1.` `'train.py' `
+## 结果展示
 
-* `parser.add_argument('--use_kld', type=bool, default=True, help='use kld')`选择KLD or CSL
-*  修改`.\models\yolo.py`的`Detect类`中初始化函数的`self.angle = 1   #CSL---180  KLD--1`
+数据集图片尺寸裁剪为1024*1024，gap为10%。实验中NMS时统一使用的置信度阈值是0.35，IoU阈值是0.4。
 
-`2.` `'test.py'`
-* 新增了在线推断代码
+![img](.\doc\img_4.png)
 
-`3.` `'detect.py'` 
-    
-* 新增了多batch_size的检测,修改`ManyPi=True`
-* `parser.add_argument('--kld', type=bool, default=True, help='use kld')` 对应KLD or CSL的检测
-
-`4.` `'evaluation.py'` 
-
-* Run the detect.py demo first. Then change the path with yours:
-* 添加了merged前后的预测结果.
-
-`5.` `'yolo_new.py'` 
-* 在YOLOv5中加入注意力机制
-* 
 
 ## 感激
 感谢以下的项目,排名不分先后
