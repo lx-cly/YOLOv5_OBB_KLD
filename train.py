@@ -20,8 +20,8 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 import test  # import test.py to get mAP after each epoch
-#from models.yolo import Model
-from models.yolo_new import Model #添加了注意力机制
+from models.yolo import Model
+#from models.yolo_new import Model #添加了注意力机制
 from utils.datasets import create_dataloader
 from utils.general import (
     torch_distributed_zero_first, labels_to_class_weights, plot_labels, check_anchors, labels_to_image_weights,
@@ -199,12 +199,12 @@ def train(hyp, opt, device, tb_writer=None):
     
     # Freeze
     #freeze = ['', ]  # parameter names to freeze (full or partial)
-    freeze = ['model.%s.' % x for x in range(10)]  # 冻结带有'model.0.'-'model.9.'的所有参数 即冻结0-9层的backbone
-    if any(freeze):
-        for k, v in model.named_parameters():
-            if any(x in k for x in freeze):
-                print('freezing %s' % k)
-                v.requires_grad = False
+    # freeze = ['model.%s.' % x for x in range(10)]  # 冻结带有'model.0.'-'model.9.'的所有参数 即冻结0-9层的backbone
+    # if any(freeze):
+    #     for k, v in model.named_parameters():
+    #         if any(x in k for x in freeze):
+    #             print('freezing %s' % k)
+    #             v.requires_grad = False
                 
 
     # 设置学习率衰减，这里为余弦退火方式进行衰减
@@ -516,7 +516,7 @@ def train(hyp, opt, device, tb_writer=None):
                 # 添加include的属性
                 ema.update_attr(model, include=['yaml', 'nc', 'hyp', 'gr', 'names', 'stride'])
             final_epoch = epoch + 1 == epochs
-            # 判断该epoch是否为最后一轮
+            # 判断该epoch是否为最后一轮 # kld 暂时不适合在线评估
             #if not opt.notest or final_epoch:  # Calculate mAP
                 # #对测试集进行测试，计算mAP等指标
                 # #测试时使用的是EMA模型
@@ -644,12 +644,12 @@ if __name__ == '__main__':
   
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default='',help='initil weights path')#"./weights/yolov5m.pt"
+    parser.add_argument('--weights', type=str, default="",help='initil weights path')#"./weights/yolov5m.pt"
     parser.add_argument('--cfg', type=str, default='./models/yolov5m.yaml', help='model.yaml path')
     parser.add_argument('--data', type=str, default='data/DOTA_ROTATED.yaml', help='data.yaml path')
     parser.add_argument('--hyp', type=str, default='data/hyp.scratch.yaml', help='hyperparameters path')
-    parser.add_argument('--epochs', type=int, default=200)
-    parser.add_argument('--batch-size', type=int, default=4, help='total batch size for all GPUs')
+    parser.add_argument('--epochs', type=int, default=300)
+    parser.add_argument('--batch-size', type=int, default=8, help='total batch size for all GPUs')
     parser.add_argument('--use_kld', type=bool, default=True, help='use kld')  #默认使用KLD False --使用CSL
     parser.add_argument('--img-size', nargs='+', type=int, default=[1024, 1024], help='[train, test] image sizes')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
@@ -662,13 +662,13 @@ if __name__ == '__main__':
     parser.add_argument('--cache-images', action='store_true', default=False, help='cache images for faster training')
     parser.add_argument('--image-weights', action='store_true', help='use weighted image selection for training')
     parser.add_argument('--name', default='', help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='1', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--multi-scale', action='store_true', help='vary img-size +/- 50%%')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
-    parser.add_argument('--adam', action='store_true', help='use torch.optim.Adam() optimizer')
+    parser.add_argument('--adam', action='store_true', default=True, help='use torch.optim.Adam() optimizer')
     parser.add_argument('--sync-bn', action='store_true', help='use SyncBatchNorm, only available in DDP mode')
     parser.add_argument('--local_rank', type=int, default=-1, help='DDP parameter, do not modify')
-    parser.add_argument('--logdir', type=str, default='runs/', help='logging directory')
+    parser.add_argument('--logdir', type=str, default='runs_kld/', help='logging directory')
     parser.add_argument('--workers', type=int, default=4, help='maximum number of dataloader workers')
     opt = parser.parse_args()
 
