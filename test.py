@@ -32,7 +32,9 @@ def test(data,
          dataloader=None,
          save_dir=Path(''),  # for saving images
          save_txt=False,  # for auto-labelling
-         plots=True):
+         plots=True,
+         kld_flag = False
+         ):
     # Initialize/load model and set device
     training = model is not None
     if training:  # called by train.py
@@ -110,7 +112,7 @@ def test(data,
 
             # Run NMS
             t = time_synchronized()
-            output = non_max_suppression_en(inf_out, conf_thres=conf_thres, iou_thres=iou_thres)
+            output = non_max_suppression_en(inf_out, conf_thres=conf_thres, iou_thres=iou_thres,kld_flag=kld_flag)
             #output = rotate_non_max_suppression(inf_out, conf_thres=conf_thres, iou_thres=iou_thres)
             #rotate_non_max_suppression(inf_out, conf_thres=conf_thres, iou_thres=iou_thres)#
             t1 += time_synchronized() - t
@@ -269,6 +271,7 @@ if __name__ == '__main__':
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--verbose', action='store_true', help='report mAP by class')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
+    parser.add_argument('--kld', type=bool, default=False, help='use kld')
     opt = parser.parse_args()
     opt.save_json |= opt.data.endswith('coco.yaml')
     opt.data = check_file(opt.data)  # check file
@@ -284,7 +287,8 @@ if __name__ == '__main__':
              opt.save_json,
              opt.single_cls,
              opt.augment,
-             opt.verbose)
+             opt.verbose,
+             kld_flag = opt.kld)
 
     elif opt.task == 'study':  # run over a range of settings and save/plot
         for weights in ['yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']:
