@@ -74,7 +74,7 @@ I have used utility functions from other wonderful open-source projects. Espeici
 * 知乎（@[略略略](https://www.zhihu.com/people/lue-lue-lue-3-92-86)）
 * 代码问题提issues,其他问题请知乎上联系
 
-## 关于作者
+## 关于原作者
 
 ```javascript
   Name  : "胡凯旋"
