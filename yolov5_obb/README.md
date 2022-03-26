@@ -1,3 +1,12 @@
+# 更改
+添加 yolov5+kld实现旋转框检测
+训练推理流程跟原作者项目一样，看下面的说明，不过是使用带_kld 的py文件
+```
+#训练
+python train_kld.py
+#推理
+```
+
 # Yolov5 for Oriented Object Detection
 ![图片](./docs/detection.png)
 ![train_batch0.jpg](./docs/train_batch6.jpg)
