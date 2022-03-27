@@ -9,7 +9,7 @@ python train_kld.py
 ### cls
 ![图片](./docs/PR_curve.png)
 ### kld 
-![图片](./docs/PR_curve_kld.png)
+![图片](./docs/PR_curve_kld_n.png)
 # Yolov5 for Oriented Object Detection
 ![图片](./docs/detection.png)
 ![train_batch0.jpg](./docs/train_batch6.jpg)
