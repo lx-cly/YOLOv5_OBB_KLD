@@ -186,7 +186,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
     logger.info('\n%3s%18s%3s%10s  %-40s%-30s' % ('', 'from', 'n', 'params', 'module', 'arguments'))  # 打印相关参数的类名
     anchors, nc, gd, gw = d['anchors'], d['nc'], d['depth_multiple'], d['width_multiple']
     na = (len(anchors[0]) // 2) if isinstance(anchors, list) else anchors  # number of anchors  6//2=3
-    no = na * (nc + 6)  # number of outputs = anchors * (classes + 5) = 3*85 =255
+    no = na * (nc + 5)  # number of outputs = anchors * (classes + 5) = 3*85 =255
     layers, save, c2 = [], [], ch[-1]  # layers, savelist, ch out  []  []  3
     for i, (f, n, m, args) in enumerate(d['backbone'] + d['head']):  # from, number, module, args
         m = eval(m) if isinstance(m, str) else m  # eval strings
