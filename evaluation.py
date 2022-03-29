@@ -249,11 +249,11 @@ def voc_eval(detpath,
     #
     #
     # print('npos num:', npos)
-    a = np.sum(tp)
+#     a = np.sum(tp)
 
-    R = a/float(npos)
-    P = a/len(tp)
-    print('R',R,'P',P)
+#     R = a/float(npos)
+#     P = a/len(tp)
+#     print('R',R,'P',P)
     fp = np.cumsum(fp)
     tp = np.cumsum(tp)
 
@@ -322,8 +322,8 @@ def evaluation_samll(detoutput='/workspace/detectionlx',imageset='/data_all/data
              ovthresh=0.5,
              use_07_metric=True)
         map = map + ap
-        mp = mp + prec.mean()
-        mr = mr + rec.mean()
+        mp = mp + prec[-1]#.mean()
+        mr = mr + rec[-1]#.mean()
         # print('rec: ', rec, 'prec: ', prec, 'ap: ', ap)
         # print('ap: ', ap)
         classaps.append(ap)
@@ -370,6 +370,7 @@ def evaluation(detoutput, imageset, annopath, classnames):
         import shutil
         shutil.rmtree(result_merged_path)
         shutil.rmtree(result_classname_path)
+        shutil.rmtree(str(imageset_name_file_path +'/imgnamefile.txt'))
         # 如果path是一个目录， 抛出 OSError错误。如果文件不错在或路径错误，也会抛出错误
 
     # see demo for example
@@ -411,8 +412,8 @@ def evaluation(detoutput, imageset, annopath, classnames):
              ovthresh=0.5,
              use_07_metric=True)
         map = map + ap
-        mp = mp + prec.mean()
-        mr = mr + rec.mean()
+        mp = mp + prec[-1]#.mean()
+        mr = mr + rec[-1]#.mean()
         # print('rec: ', rec, 'prec: ', prec, 'ap: ', ap)
         # print('ap: ', ap)
         classaps.append(ap)
