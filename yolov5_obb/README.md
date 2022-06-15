@@ -6,6 +6,7 @@
 python train_kld.py
 #推理
 ```
+下面是用DOTAv1.5的验证集的图片做为测试训练的训练集以及验证集，只是演示作用。说明KLD有效果。
 ### cls
 ![图片](./docs/PR_curve.png)
 ### kld 
