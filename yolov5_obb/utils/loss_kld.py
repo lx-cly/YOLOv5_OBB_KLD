@@ -202,7 +202,7 @@ class ComputeLoss_kld:
                 class_index = 5 + self.nc
 
                 #弧度制
-                angele = (ps[:, class_index:].sigmoid()-0.5) * 1.5708 # [] pi = 3.141592
+                angele = (ps[:, class_index:].sigmoid()-0.5) * 3.1415926 # [] pi = 3.141592
                 #angele = ps[:, class_index:]
                 pbox = torch.cat((pxy,pwh,angele), 1)  # predicted box
                 iou = self.kldbbox(pbox,tbox[i])#bbox_iou(pbox.T, tbox[i], x1y1x2y2=False, CIoU=True)  # iou(prediction, target)
