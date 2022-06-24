@@ -6,7 +6,7 @@
 
 
 ## 数据集和权重文件
-* `数据集` : [预处理过后的数据集](https://pan.baidu.com/s/1eyiZyjOMH9dQ8nCsPfxTTQ ).若是想训练自定义数据集，预处理过程参看[项目](https://github.com/CAPTAIN-WHU/DOTA_devkit).
+* `数据集` : [预处理过后的数据集](https://pan.baidu.com/s/1eyiZyjOMH9dQ8nCsPfxTTQ ).若是想训练自定义数据集，预处理过程参看[项目](https://github.com/hukaixuan19970627/DOTA_devkit_YOLO).
 * `原始预训练的权重文件` : 
     * `yolov5x.pt、yolov5l.pt、yolov5m.pt、yolov5s.pt`:   [Baidu Drive(6666)](https://pan.baidu.com/s/1-YmcCv25f7OHzx8sBg5bpA ).
 
