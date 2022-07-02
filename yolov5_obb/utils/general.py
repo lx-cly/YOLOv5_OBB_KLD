@@ -912,7 +912,7 @@ def non_max_suppression_obb_kld(prediction, conf_thres=0.25, iou_thres=0.45, cla
         # Compute conf
         x[:, 5:class_index] *= x[:, 4:5]  # conf = obj_conf * cls_conf
 
-        theta_pred = (x[:,class_index:]-0.5) * 1.5708
+        theta_pred = (x[:,class_index:]-0.5) * 3.141592
         #_, theta_pred = torch.max(x[:, class_index:], 1,  keepdim=True) # [n_conf_thres, 1] θ ∈ int[0, 179]
         #theta_pred = (theta_pred - 90) / 180 * pi # [n_conf_thres, 1] θ ∈ [-pi/2, pi/2)
 
